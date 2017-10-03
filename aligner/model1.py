@@ -3,6 +3,7 @@ IBM Model 1 implementation for Machine Translation class HW2 Aligner
 '''
 
 #!/usr/bin/env python
+import math
 import optparse
 import sys
 from collections import defaultdict
@@ -20,6 +21,100 @@ e_data = "%s.%s" % (opts.train, opts.english)
 sys.stderr.write("Training with IBM Model 1...")
 
 bitext = [[sentence.strip().split() for sentence in pair] for pair in zip(open(f_data), open(e_data))[:opts.num_sents]]
+'''
+fprobs = defaultdict(float) #prob(f)
+eprobs = defaultdict(float) #prob(e)
+thetak_prob = defaultdict(float) #Theta prob (t)
+countfe = defaultdict(float) #Counter (fe_count)
+counte = defaultdict(float) #coutner (total_e)
+countf = defaultdict(float)
+sumtotal = defaultdict(float)#total_prob for a fword
+n = 0
+# add [:opts.num_sents] to end of for to limit training data to input
+#crating the vocabularies
+fvocab = set()
+evocab = set()
+for number in range(opts.num_sents):
+        sentence = [sentence for sentence in bitext[number]]
+        fvocab.update(set(sentence[0]))
+        evocab.update(set(sentence[1]))
+# Assigning initial uniform probabilities
+for fword in fvocab:
+    for eword in evocab:
+            thetak_prob[fword,eword] = 1 / float(len(evocab))
+sys.stderr.write("Training...\n")
+
+# Actual training begins here
+for _ in range (1):
+  for (fsentence, esentence) in bitext:
+    if n % 500 == 0:
+      sys.stderr.write("%i sentences read\n" %n)
+    n = n + 1
+    for fword in fsentence:
+      if fword not in fprobs:
+        fprobs[fword] = {}
+        sumtotal[fword] = 0.0
+      total_sum = 0.0
+      for eword in esentence: 
+        if eword not in eprobs:
+          eprobs[eword] = 1/float(len(esentence))
+        else:
+          eprobs[eword] += 1/float(len(esentence))
+        if eword not in (fprobs[fword]):
+          fprobs[fword][eword] = eprobs[eword]
+        else:
+          fprobs[fword][eword] += eprobs[eword]
+        total_sum += fprobs[fword][eword]
+        sumtotal[fword] = total_sum
+      for eword in esentence:
+        c = fprobs[fword][eword]/ float((total_sum))
+        if (fword,eword) in countfe:
+          countfe[(fword,eword)] += c
+        else:
+          countfe[(fword,eword)] = c
+        if eword in counte:
+          counte[eword] += c
+        else:
+          counte[eword] = c  
+    for (fword, eword) in countfe:
+        thetak_prob[(fword, eword)] += countfe[(fword, eword)]/ counte[eword]
+        #normalizing thetak_prob
+        thetak_prob[(fword,eword)] /= sumtotal[fword]
+
+# Predict/Align: Most Probable Alignment:
+# Alignment Step
+sys.stderr.write("\nAligning...\n")
+n = 0
+for (fsentence, esentence) in bitext:
+  if n % 500 == 0:
+    sys.stderr.write("%s? sentences aligned\n" %n)
+  fnum = -1
+  for fword in fsentence:
+      fnum = fnum + 1
+      best_j = ''
+      best_prob = 0.0
+      best_num = []
+      enum = -1
+      for eword in esentence:
+       enum  = enum + 1 
+       if eword is not None:
+        if thetak_prob[(fword, eword)] > best_prob:
+          #if aligns to null, dont print
+            best_prob = thetak_prob[(fword, eword)]
+            best_j = eword
+            best_num = [enum]
+       elif thetak_prob[(fword, eword)] == best_prob:
+          #if aligns to null, dont print
+            best_num.append(enum)
+      for num in range(len(best_num)):
+         if math.fabs(best_num[num] - fnum) < 4:
+            sys.stdout.write("%i-%i " % (fnum,best_num[num]))
+  sys.stdout.write("\n")
+  n +=1
+'''
+
+#Initialise n which is used to store number of sentences
+n = 0
 
 #Count of french words
 f_count = defaultdict(float)
@@ -28,6 +123,7 @@ e_count = defaultdict(float)
 
 fe_count = defaultdict(float)
 sum_t = defaultdict(float)
+total = defaultdict(float)
 
 #Theta probability
 t_prob = defaultdict(float)
@@ -49,14 +145,14 @@ for f in f_vocab:
   for e in e_vocab:
     t_prob[f,e] = 1 / float(len(e_vocab))
 
-#Initialise n which is used to store number of sentences
-n = 0
 
-'''Calculating probabilities according to the sentences in vocabulary
-stored in bitext.
-'''
+#Calculating probabilities according to the sentences in vocabulary
+#stored in bitext.
+
 for _ in range(1):
   for (f_sen, e_sen) in bitext:
+    if n % 500 == 0:
+      sys.stderr.write("%i sentences have been read \n" %n)
     n = n + 1
     for f in f_sen:
       if f not in f_prob:
@@ -65,10 +161,10 @@ for _ in range(1):
       total = 0.0
       for e in e_sen:
         if e not in e_prob:
-          e_prob[e] = 1 / float(len(e_sen))
-        else
-          e_prob[e] += 1 / float(len(e_sen))
-        if e not in f_prob[f]:
+          e_prob[e] = (1 / float(len(e_sen)))
+        else:
+          e_prob[e] += (1 / float(len(e_sen)))
+        if e not in (f_prob[f]):
           f_prob[f][e] = e_prob[e]
         else:
           f_prob[f][e] += e_prob[e]
@@ -91,31 +187,29 @@ for _ in range(1):
       t_prob[(f,e)] += fe_count[(f,e)] / e_count[e]
       t_prob[(f,e)] /= sum_t[f] 
 
-#print bitext
-
-
-'''
-for (n, (f, e)) in enumerate(bitext):
-  for f_i in set(f):
-    f_count[f_i] += 1
-    for e_j in set(e):
-      fe_count[(f_i,e_j)] += 1
-  for e_j in set(e):
-    e_count[e_j] += 1
+sys.stderr.write("\n Aligning... \n")
+n = 0
+for (f_sen, e_sen) in bitext:
   if n % 500 == 0:
-    sys.stderr.write(".")
-
-dice = defaultdict(int)
-for (k, (f_i, e_j)) in enumerate(fe_count.keys()):
-  dice[(f_i,e_j)] = 2.0 * fe_count[(f_i, e_j)] / (f_count[f_i] + e_count[e_j])
-  if k % 5000 == 0:
-    sys.stderr.write(".")
-sys.stderr.write("\n")
-
-for (f, e) in bitext:
-  for (i, f_i) in enumerate(f): 
-    for (j, e_j) in enumerate(e):
-      if dice[(f_i,e_j)] >= opts.threshold:
-        sys.stdout.write("%i-%i " % (i,j))
+    sys.stderr.write("%s? sentences aligned\n" %n)
+  fnum = -1
+  for f in f_sen:
+    fnum = fnum + 1
+    best_a = ''
+    best_p = 0.0
+    best_num = []
+    enum = -1
+    for e in e_sen:
+      enum = enum + 1
+      if e is not None:
+        if t_prob[(f,e)] > best_p:
+          best_p = t_prob[(f,e)]
+          best_a = e
+          best_num = [enum]
+        elif t_prob[(f,e)] == best_p:
+          best_num.append(enum)
+      for m in range(len(best_num)):
+        if math.fabs(best_num[m] - fnum) < 5:
+           sys.stdout.write("%i-%i " % (fnum,best_num[m]))
   sys.stdout.write("\n")
-'''
+  n += 1
