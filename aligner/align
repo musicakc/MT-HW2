@@ -19,7 +19,7 @@ e_data = "%s.%s" % (opts.train, opts.english)
 '''aligner = model1(5)
 sys.stderr.write("Training with IBM Model 1...\n")'''
 
-aligner = model2(5)
+aligner = model1(5)
 sys.stderr.write("Training with HMM Model...\n")
   
 bitext = [[sentence.strip().split() for sentence in pair] for pair in zip(open(f_data), open(e_data))[:opts.num_sents]]
@@ -28,7 +28,7 @@ aligner.train(bitext)
 for sen in bitext:
   align_1 = aligner.align(sen)
   try:
-    for (i, j) in alignment:
+    for (i, j) in align_1:
       sys.stdout.write("%i-%i " % (i,j))
     sys.stdout.write("\n")
   except IOError: #to avoid IOError: [Errno 32] Broken pipe

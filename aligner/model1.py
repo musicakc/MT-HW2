@@ -1,24 +1,23 @@
 import math
-#from Aligner import Aligner
 from collections import defaultdict
 
 class model1(object):
 
-    def __init__(self, iter):
-      self.iter = iter
+    def __init__(self, iterate):
+      self.iter = iterate
       self.theta = defaultdict(int)
         
     #training IBM Model1
     def train(self, bitext):
 
-        #create vocabulary mapping
+        #Create vocabulary mapping
         vocab = defaultdict(set)
         for (f, e) in bitext:
             for e_1 in e:
                 for f_1 in f:
                     vocab[e_1].add(f_1)
 
-        #initialize theta probablities
+        #Initialize Theta Probablities
         for e in vocab:
             for f in vocab[e]:
                 self.theta[(e, f)] = 1.0 / float(len(vocab[e]))
